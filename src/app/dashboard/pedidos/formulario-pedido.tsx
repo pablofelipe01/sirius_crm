@@ -3,14 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import type { AreaEmpresa } from "@/lib/areas";
 import type { Cliente } from "@/lib/clientes";
 import {
   CATEGORIAS_APLICACION,
-  ESTADOS_PEDIDO,
-  estaCerradoPedido,
   formatearPesos,
   type CategoriaAplicacion,
-  type EstadoPedido,
 } from "@/lib/pedidos-comun";
 import type { Producto } from "@/lib/productos";
 import { IconClose, IconPlus } from "../icons";
@@ -18,11 +16,6 @@ import { IconClose, IconPlus } from "../icons";
 const input =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 placeholder:text-slate-500 focus:border-blue-600 disabled:opacity-60 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-blue-400";
 const etiqueta = "text-xs font-medium text-slate-700 dark:text-slate-300";
-
-/** Un pedido nuevo nace en marcha; Completado o Cancelado no son puntos de partida. */
-const ESTADOS_INICIALES = ESTADOS_PEDIDO.filter(
-  (estado) => !estaCerradoPedido(estado),
-);
 
 type Renglon = {
   /** Clave estable de la fila mientras se edita; no viaja al servidor. */
@@ -39,12 +32,14 @@ function renglonVacio(indice: number): Renglon {
 export function FormularioPedido({
   clientes,
   productos,
+  areas,
   sesion,
   hoy,
   onCerrar,
 }: {
   clientes: Cliente[];
   productos: Producto[];
+  areas: AreaEmpresa[];
   sesion: { idEmpleado: string; nombre: string };
   hoy: string;
   onCerrar: () => void;
@@ -53,8 +48,8 @@ export function FormularioPedido({
 
   const [clienteId, setClienteId] = useState("");
   const [fecha, setFecha] = useState(hoy);
-  const [estado, setEstado] = useState<EstadoPedido>("Recibido");
   const [categoria, setCategoria] = useState("");
+  const [area, setArea] = useState("");
   const [notas, setNotas] = useState("");
   const [renglones, setRenglones] = useState<Renglon[]>([renglonVacio(0)]);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +158,7 @@ export function FormularioPedido({
       body: JSON.stringify({
         idClienteCore: cliente.id,
         fecha,
-        estado,
+        idAreaCore: area || undefined,
         categoriaAplicacion: categoria || undefined,
         notas: notas.trim() || undefined,
         lineas,
@@ -269,19 +264,20 @@ export function FormularioPedido({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="pedido-estado" className={etiqueta}>
-                Estado inicial *
+              <label htmlFor="pedido-area" className={etiqueta}>
+                Área de la empresa
               </label>
               <select
-                id="pedido-estado"
-                value={estado}
-                onChange={(e) => setEstado(e.target.value as EstadoPedido)}
+                id="pedido-area"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
                 disabled={guardando}
                 className={`${input} cursor-pointer`}
               >
-                {ESTADOS_INICIALES.map((valor) => (
-                  <option key={valor} value={valor}>
-                    {valor}
+                <option value="">Sin definir</option>
+                {areas.map((opcion) => (
+                  <option key={opcion.codigo} value={opcion.codigo}>
+                    {opcion.nombre}
                   </option>
                 ))}
               </select>

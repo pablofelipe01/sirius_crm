@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import type { AreaEmpresa } from "@/lib/areas";
 import type { Cliente } from "@/lib/clientes";
 import { formatearFecha } from "@/lib/fechas";
 import type { LineaPedido, Pedido } from "@/lib/pedidos";
@@ -56,6 +57,7 @@ type Props = {
   pedidos: FilaPedido[];
   clientes: Cliente[];
   productos: Producto[];
+  areas: AreaEmpresa[];
   sesion: { idEmpleado: string; nombre: string };
   hoy: string;
   permisos: Permisos;
@@ -65,6 +67,7 @@ export function ModuloPedidos({
   pedidos,
   clientes,
   productos,
+  areas,
   sesion,
   hoy,
   permisos,
@@ -345,6 +348,7 @@ export function ModuloPedidos({
         <FormularioPedido
           clientes={clientes}
           productos={productos}
+          areas={areas}
           sesion={sesion}
           hoy={hoy}
           onCerrar={() => setFormularioAbierto(false)}
@@ -482,6 +486,18 @@ function FilaPedidoTabla({
                     </tbody>
                   </table>
                 )}
+
+                {/* Los pedidos anteriores al campo no tienen área. Si el
+                    código no resuelve contra Nómina se muestra crudo: es más
+                    útil que un hueco para saber qué quedó apuntando a nada. */}
+                {(pedido.area ?? pedido.idAreaCore) ? (
+                  <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      Área:{" "}
+                    </span>
+                    {pedido.area ?? pedido.idAreaCore}
+                  </p>
+                ) : null}
 
                 {pedido.notas ? (
                   <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">

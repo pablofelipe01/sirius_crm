@@ -17,7 +17,7 @@ export const env = {
     return required("SESSION_SECRET", process.env.SESSION_SECRET);
   },
 
-  /* Sirius Nomina Core — usuarios del sistema */
+  /* Sirius Nomina Core — usuarios del sistema y áreas de la empresa */
   get baseNomina() {
     return required("AIRTABLE_BASE_ID", process.env.AIRTABLE_BASE_ID);
   },
@@ -26,6 +26,9 @@ export const env = {
       "AIRTABLE_TABLE_PERSONAL",
       process.env.AIRTABLE_TABLE_PERSONAL,
     );
+  },
+  get tablaAreas() {
+    return required("AIRTABLE_TABLE_AREAS", process.env.AIRTABLE_TABLE_AREAS);
   },
 
   /* Sirius CRM — visitas y casos */

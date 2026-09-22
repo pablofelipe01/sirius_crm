@@ -14,15 +14,17 @@ import type { CategoriaAplicacion, EstadoPedido } from "@/lib/pedidos-comun";
  *
  * La base la comparten DataLab y PiroliApp, así que el CRM solo lee y escribe
  * los campos que ya existen. El cruce con el resto del sistema es por serial:
- * `ID Cliente Core` (CL-XXXX), `ID Producto Core` (SIRIUS-PRODUCT-XXXX) e
- * `ID Usuario Responsable` (SIRIUS-PER-XXXX), que además es la clave de
- * propiedad del registro para los permisos.
+ * `ID Cliente Core` (CL-XXXX), `ID Producto Core` (SIRIUS-PRODUCT-XXXX),
+ * `ID Area Core` (SIRIUS-AREA-XXXX) e `ID Usuario Responsable`
+ * (SIRIUS-PER-XXXX), que además es la clave de propiedad del registro para los
+ * permisos.
  */
 
 const CAMPOS_PEDIDO = {
   id: "ID Pedido Core",
   idClienteCore: "ID Cliente Core",
   idPersonalCore: "ID Usuario Responsable",
+  idAreaCore: "ID Area Core",
   fecha: "Fecha de Pedido",
   origen: "Origen del Pedido",
   estado: "Estado",
@@ -69,6 +71,10 @@ export type Pedido = {
   idPersonalCore: string | null;
   /** Se resuelve contra Sirius Nomina Core; la tabla solo guarda el ID. */
   responsable: string | null;
+  /** Código SIRIUS-AREA-XXXX del área de la empresa dueña del pedido. */
+  idAreaCore: string | null;
+  /** Igual que `responsable`: el nombre se resuelve, el código es el dato. */
+  area: string | null;
   /** YYYY-MM-DD. El campo en Airtable es dateTime; aquí solo interesa el día. */
   fecha: string | null;
   origen: string | null;
@@ -129,7 +135,9 @@ function aLinea(registro: AirtableRecord): LineaPedido {
  * sentido es el que refleja la verdad de la línea.
  */
 const leerPedidos = cachearLectura(
-  "pedidos",
+  // "pedidos-v2": Pedido ganó idAreaCore y area. Las entradas viejas no se
+  // invalidan al desplegar, y con la clave anterior el área saldría vacía.
+  "pedidos-v2",
   ETIQUETAS.pedidos,
   async (): Promise<Pedido[]> => {
     const [registros, detalles] = await Promise.all([
@@ -163,6 +171,8 @@ const leerPedidos = cachearLectura(
           idClienteCore: texto(f[CAMPOS_PEDIDO.idClienteCore]),
           idPersonalCore: texto(f[CAMPOS_PEDIDO.idPersonalCore]),
           responsable: null,
+          idAreaCore: texto(f[CAMPOS_PEDIDO.idAreaCore]),
+          area: null,
           fecha: soloDia(f[CAMPOS_PEDIDO.fecha]),
           origen: texto(f[CAMPOS_PEDIDO.origen]),
           estado: texto(f[CAMPOS_PEDIDO.estado]),
@@ -204,6 +214,8 @@ async function leerPedidosFrescos(recordId: string): Promise<Pedido[]> {
       idClienteCore: texto(f[CAMPOS_PEDIDO.idClienteCore]),
       idPersonalCore: texto(f[CAMPOS_PEDIDO.idPersonalCore]),
       responsable: null,
+      idAreaCore: texto(f[CAMPOS_PEDIDO.idAreaCore]),
+      area: null,
       fecha: soloDia(f[CAMPOS_PEDIDO.fecha]),
       origen: texto(f[CAMPOS_PEDIDO.origen]),
       estado: texto(f[CAMPOS_PEDIDO.estado]),
@@ -229,6 +241,18 @@ export function conResponsables(
   }));
 }
 
+/** Pone el nombre del área a partir del código; el código sigue mandando. */
+export function conAreas(
+  pedidos: Pedido[],
+  areas: { codigo: string; nombre: string }[],
+): Pedido[] {
+  const porCodigo = new Map(areas.map((a) => [a.codigo, a.nombre]));
+  return pedidos.map((pedido) => ({
+    ...pedido,
+    area: pedido.idAreaCore ? (porCodigo.get(pedido.idAreaCore) ?? null) : null,
+  }));
+}
+
 /* -------------------------------- Escritura ------------------------------ */
 
 export type LineaNueva = {
@@ -240,6 +264,8 @@ export type LineaNueva = {
 export type EntradaPedido = {
   idClienteCore: string;
   idPersonalCore: string;
+  /** Código SIRIUS-AREA-XXXX; opcional porque los pedidos viejos no lo tienen. */
+  idAreaCore?: string;
   /** YYYY-MM-DD; se guarda al mediodía de Bogotá para no cruzar de día. */
   fecha: string;
   estado: EstadoPedido;
@@ -264,6 +290,10 @@ export async function crearPedido(entrada: EntradaPedido): Promise<Pedido> {
     [CAMPOS_PEDIDO.estado]: entrada.estado,
     [CAMPOS_PEDIDO.notas]: entrada.notas ?? "",
   };
+
+  if (entrada.idAreaCore) {
+    fields[CAMPOS_PEDIDO.idAreaCore] = entrada.idAreaCore;
+  }
 
   if (entrada.categoriaAplicacion) {
     fields[CAMPOS_PEDIDO.categoriaAplicacion] = entrada.categoriaAplicacion;
@@ -318,6 +348,8 @@ function vacio(recordId: string, id: string): Pedido {
     idClienteCore: null,
     idPersonalCore: null,
     responsable: null,
+    idAreaCore: null,
+    area: null,
     fecha: null,
     origen: null,
     estado: null,

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 
+import { listarPersonalActivo } from "@/lib/airtable";
+import { esAreaDePedido, listarAreas, SERIAL_AREA } from "@/lib/areas";
 import { esErrorAutoria, resolverAutoria } from "@/lib/autoria";
 import { ETIQUETAS, invalidar } from "@/lib/cache";
 import {
   CATEGORIAS_APLICACION,
+  conAreas,
+  conResponsables,
   crearPedido,
   ESTADOS_PEDIDO,
   estaCerradoPedido,
@@ -31,9 +35,18 @@ export async function GET() {
   const permisos = permisosDe(session);
 
   try {
-    const pedidos = await listarPedidos();
+    // La tabla de pedidos solo guarda los seriales del responsable y del área;
+    // quien consume la API —el conector MCP— necesita los nombres, igual que
+    // la pantalla. Ambos maestros van cacheados, así que no cuestan una vuelta.
+    const [pedidos, personal, areas] = await Promise.all([
+      listarPedidos(),
+      listarPersonalActivo(),
+      listarAreas(),
+    ]);
+
+    const conNombre = conAreas(conResponsables(pedidos, personal), areas);
     return NextResponse.json({
-      pedidos: filtrarPorAlcance(pedidos, permisos, session),
+      pedidos: filtrarPorAlcance(conNombre, permisos, session),
     });
   } catch (error) {
     console.error("listar pedidos", error);
@@ -69,8 +82,12 @@ export async function POST(request: Request) {
 
   const idClienteCore = cadena(body.idClienteCore);
   const fecha = cadena(body.fecha);
-  const estado = cadena(body.estado);
+  // El estado inicial no se elige en el formulario: un pedido que entra al CRM
+  // está Recibido, y de ahí lo mueve quien lo atiende. El conector MCP sí lo
+  // manda explícito, así que lo que llegue se sigue validando.
+  const estado = cadena(body.estado) ?? "Recibido";
   const categoria = cadena(body.categoriaAplicacion);
+  const idAreaCore = cadena(body.idAreaCore);
 
   if (!idClienteCore || !SERIAL_CLIENTE.test(idClienteCore)) {
     return NextResponse.json(
@@ -84,7 +101,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  if (!estado || !ESTADOS_PEDIDO.includes(estado as EstadoPedido)) {
+  if (!ESTADOS_PEDIDO.includes(estado as EstadoPedido)) {
     return NextResponse.json({ error: "Estado inválido." }, { status: 400 });
   }
   // Un pedido nuevo se registra para atenderlo; nacer cerrado no tiene sentido.
@@ -100,6 +117,19 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       { error: "Categoría de aplicación inválida." },
+      { status: 400 },
+    );
+  }
+
+  // El área es opcional, pero si viene tiene que ser un serial de Nómina —un
+  // texto libre rompería el cruce para quien lea la base después— y una de las
+  // dos líneas productivas, que son las únicas que atienden un pedido.
+  if (
+    idAreaCore &&
+    (!SERIAL_AREA.test(idAreaCore) || !esAreaDePedido(idAreaCore))
+  ) {
+    return NextResponse.json(
+      { error: "Elige un área de la lista." },
       { status: 400 },
     );
   }
@@ -125,6 +155,7 @@ export async function POST(request: Request) {
     const pedido = await crearPedido({
       idClienteCore,
       idPersonalCore: autoria.idPersonalCore,
+      idAreaCore: idAreaCore ?? undefined,
       fecha,
       estado: estado as EstadoPedido,
       categoriaAplicacion: (categoria as CategoriaAplicacion) ?? undefined,

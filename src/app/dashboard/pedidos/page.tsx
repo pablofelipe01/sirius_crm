@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { listarPersonalActivo } from "@/lib/airtable";
+import { areasDePedido, listarAreas } from "@/lib/areas";
 import { listarClientesCompletos } from "@/lib/clientes";
 import { hoyEnBogota } from "@/lib/crm";
-import { conResponsables, listarPedidos } from "@/lib/pedidos";
+import { conAreas, conResponsables, listarPedidos } from "@/lib/pedidos";
 import { filtrarPorAlcance, permisosDe } from "@/lib/permisos";
 import { listarProductosActivos } from "@/lib/productos";
 import { remisionesPorPedido } from "@/lib/remisiones";
@@ -21,19 +22,21 @@ export default async function PedidosPage() {
     redirect("/login");
   }
 
-  const [pedidos, clientes, productos, personal, remisiones] =
+  const [pedidos, clientes, productos, personal, areas, remisiones] =
     await Promise.all([
       listarPedidos(),
       listarClientesCompletos(),
       listarProductosActivos(),
       listarPersonalActivo(),
+      listarAreas(),
       remisionesPorPedido(),
     ]);
 
   const permisos = permisosDe(session);
 
-  // El nombre del responsable no vive en la tabla de pedidos, solo su ID.
-  const conNombre = conResponsables(pedidos, personal);
+  // Ni el nombre del responsable ni el del área viven en la tabla de pedidos:
+  // solo sus seriales, que apuntan a Sirius Nomina Core.
+  const conNombre = conAreas(conResponsables(pedidos, personal), areas);
   const mios = filtrarPorAlcance(conNombre, permisos, session);
 
   // Los seriales son la moneda de cambio entre bases; aquí se vuelven nombres.
@@ -75,6 +78,7 @@ export default async function PedidosPage() {
         pedidos={filas}
         clientes={clientes.filter((c) => c.activo && c.id)}
         productos={productos}
+        areas={areasDePedido(areas)}
         sesion={{ idEmpleado: session.idEmpleado, nombre: session.nombre }}
         hoy={hoyEnBogota()}
         permisos={permisos}

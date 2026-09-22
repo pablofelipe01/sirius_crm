@@ -69,6 +69,7 @@ export function resumirPedido(pedido) {
     idClienteCore: pedido.idClienteCore,
     estado: pedido.estado,
     responsable: pedido.responsable,
+    area: pedido.area,
     categoriaAplicacion: pedido.categoriaAplicacion,
     origen: pedido.origen,
     total: pedido.total,

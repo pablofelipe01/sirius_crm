@@ -24,6 +24,7 @@ export const ETIQUETAS = {
   cultivos: "airtable:cultivos",
   productos: "airtable:productos",
   personal: "airtable:personal",
+  areas: "airtable:areas",
   pedidos: "airtable:pedidos",
   remisiones: "airtable:remisiones",
   cotizaciones: "airtable:cotizaciones",
@@ -47,6 +48,8 @@ const SEGUNDOS = {
   [ETIQUETAS.cultivos]: 300,
   [ETIQUETAS.productos]: 300,
   [ETIQUETAS.personal]: 300,
+  // Las áreas de la empresa se crean una vez y ahí se quedan.
+  [ETIQUETAS.areas]: 600,
   // Un pedido cambia de estado durante el dia; la remision la escribe otra app.
   [ETIQUETAS.pedidos]: 30,
   [ETIQUETAS.remisiones]: 60,
